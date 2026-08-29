@@ -45,7 +45,7 @@ function Footer() {
           {/* Product */}
           <div>
             <h3 className="text-sm font-semibold text-slate-950">
-              Product:v1
+              Product
             </h3>
 
             <ul className="mt-5 space-y-3 text-sm">
@@ -90,7 +90,7 @@ function Footer() {
           {/* Company */}
           <div>
             <h3 className="text-sm font-semibold text-slate-950">
-              Company:v1
+              Company
             </h3>
 
             <ul className="mt-5 space-y-3 text-sm">

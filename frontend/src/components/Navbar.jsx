@@ -138,7 +138,7 @@ function Navbar() {
                   : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
               }`}
             >
-              Candidates-1111111111111111111111111111111111111111
+              Candidates
             </Link>
           </div>
         </div>
