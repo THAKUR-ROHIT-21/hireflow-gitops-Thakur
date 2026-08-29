@@ -43,8 +43,6 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    # IMPORTANT:
-    # Explicit permission for GHCR package push
     permissions:
       contents: read
       packages: write
