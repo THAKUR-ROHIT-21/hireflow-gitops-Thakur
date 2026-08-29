@@ -43,6 +43,12 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # IMPORTANT:
+    # Explicit permission for GHCR package push
+    permissions:
+      contents: read
+      packages: write
+
     outputs:
       build_tag: ${{ steps.image-tag.outputs.build_tag }}
       sha_tag: ${{ steps.image-tag.outputs.sha_tag }}
@@ -336,14 +342,6 @@ jobs:
           echo "New image:"
           echo "${NEW_IMAGE}"
 
-          # This replaces ANY existing GHCR owner/tag.
-          #
-          # Example:
-          # ghcr.io/devendra-5470/hireflow-backend:build-14
-          #
-          # becomes:
-          # ghcr.io/thakur-rohit-21/hireflow-backend:build-7
-
           sed -i -E \
             "s|^([[:space:]]*image:[[:space:]]*)ghcr\.io/[^[:space:]]*/hireflow-backend:[^[:space:]]+|\1${NEW_IMAGE}|" \
             gitops/k8s/backend-deployment.yaml
@@ -373,14 +371,6 @@ jobs:
 
           echo "New image:"
           echo "${NEW_IMAGE}"
-
-          # This replaces ANY existing GHCR owner/tag.
-          #
-          # Example:
-          # ghcr.io/devendra-5470/hireflow-frontend:build-14
-          #
-          # becomes:
-          # ghcr.io/thakur-rohit-21/hireflow-frontend:build-7
 
           sed -i -E \
             "s|^([[:space:]]*image:[[:space:]]*)ghcr\.io/[^[:space:]]*/hireflow-frontend:[^[:space:]]+|\1${NEW_IMAGE}|" \
