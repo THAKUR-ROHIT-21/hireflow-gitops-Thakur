@@ -1,55 +1,46 @@
-# HireFlow Project — Complete End-to-End Setup & Deployment Guide
+# HireFlow Project Deployment Guide
 
-Is document me HireFlow project ke Infrastructure Provisioning (Azure Terraform), Self-managed Kubernetes Cluster Setup, GitOps deployment (ArgoCD), aur essential Kubernetes debugging commands ki poori step-by-step jankari di gayi hai.
-
----
-
-## 📋 Prerequisite Repositories
-
-Sabse pehle niche diye gaye repositories ko apne GitHub account par clone/push karein:
-
-1. `azure-sm-k8s-iaac` — Azure infrastructure (Terraform) provisioning ke liye.
-2. `self-managed-k8s-automation` — Kubernetes Controller aur Worker node automation scripts ke liye.
-3. `hireflow-gitops-latest` — GitOps deployment aur application manifests ke liye.
-4. `hireflow-gitops-Thakur` (Optional) — Backup ya secondary GitOps repository.
+This repository provides a step-by-step guide to provisioning Azure infrastructure using Terraform, configuring a self-managed Kubernetes (k8s) cluster using `kubeadm`, and deploying applications via GitOps using ArgoCD.
 
 ---
 
-## 🔑 Step 1: GitHub Configuration & PAT Token Generation
+## 📋 Table of Contents
 
-### 1. Fine-grained Personal Access Token (PAT) create karein
-1. GitHub par sign in karein -> **Profile Picture** -> **Settings**.
-2. Left sidebar me niche scroll karke **Developer settings** par click karein.
-3. **Personal access tokens** -> **Fine-grained tokens** me jayein.
-4. **Generate new token** par click karein (Password/OTP verification complete karein).
-5. Details fill karein:
-   - **Token name:** Meaningful name dein (e.g., `HireFlow-DevOps-Token`).
-   - **Expiration:** Expiration days set karein.
-   - **Description:** Token ki details likhein.
-   - **Repository access:** **Only select repositories** choose karein aur apne **DevOps / GitOps repo** ko select karein.
-6. **Permissions set karein:**
-   - **Administration:** `Read-only`
-   - **Contents:** `Read and write`
-7. Page ke end me **Generate token** par click karein aur token ko safely copy karke rakh lein.
-
-### 2. Secrets & Variables configure karein
-1. Developer / Target Repository me jayein -> **Settings**.
-2. **Secrets and variables** -> **Actions** choose karein.
-3. **New repository secret** par click karein.
-4. **Secret Name** aur **Secret Value** (Token ya required secret credentials) enter karke **Add secret** click karein.
+1. [Prerequisites & Repository Setup](#1-prerequisites--repository-setup)
+2. [GitHub Personal Access Token (PAT) Configuration](#2-github-personal-access-token-pat-configuration)
+3. [GitHub Actions Secrets Setup](#3-github-actions-secrets-setup)
+4. [SSH Key Pair Generation](#4-ssh-key-pair-generation)
+5. [Infrastructure Provisioning via Terraform (Azure)](#5-infrastructure-provisioning-via-terraform-azure)
+6. [Kubernetes Cluster Initialization](#6-kubernetes-cluster-initialization)
+   - [Setup Controller Node](#61-setup-controller-node)
+   - [Setup Worker Node](#62-setup-worker-node)
+   - [Verify Cluster Status](#63-verify-cluster-status)
+7. [HireFlow Application Deployment](#7-hireflow-application-deployment)
+8. [ArgoCD GitOps Integration](#8-argocd-gitops-integration)
+9. [Kubernetes Operations & Troubleshooting Commands](#9-kubernetes-operations--troubleshooting-commands)
 
 ---
 
-## 🔑 Step 2: SSH Key Generation (Azure VM Access ke liye)
+## 1. Prerequisites & Repository Setup
 
-Local machine par SSH key pair generate karein jisko Azure VM creation aur SSH login me use kiya jayega:
+Ensure you have the following tools installed locally:
+- [Terraform](https://developer.hashicorp.com/terraform/downloads)
+- [Git](https://git-scm.com/)
+- [SSH Client](https://www.openssh.com/)
+
+### Clone Required Repositories
+
+Clone the following repositories into your workspace (or fork/clone and push them to your personal GitHub account):
 
 ```bash
-# 1. RSA 4096-bit PEM key pair generate karein
-ssh-keygen -t rsa -b 4096 -m PEM -f ~/.ssh/my-key
+# 1. Azure Infrastructure as Code (Terraform)
+git clone <your-repo-url>/azure-sm-k8s-iaac.git
 
-# 2. Key permission set karein (Only read for owner)
-chmod 400 ~/.ssh/my-key.pem
+# 2. Self-Managed Kubernetes Cluster Automation Scripts
+git clone <your-repo-url>/self-managed-k8s-automation.git
 
-# 3. Key verify karein
-ls -l ~/.ssh/my-key*
+# 3. HireFlow GitOps Manifests & Scripts (Latest)
+git clone <your-repo-url>/hireflow-gitops-latest.git
+
+# 4. HireFlow GitOps (Thakur - optional/if required)
+git clone <your-repo-url>/hireflow-gitops-Thakur.git
