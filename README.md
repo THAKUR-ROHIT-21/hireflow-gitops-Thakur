@@ -4,7 +4,6 @@
 >
 > **Important:** Replace every placeholder such as `<CONTROLLER_PUBLIC_IP>`, `<TOKEN>`, `<CA_CERT_HASH>`, `<REPO_URL>`, and `<SECRET_VALUE>` with your actual values. Do not commit passwords, API tokens, private keys, or other secrets to Git.
 
----
 
 ## Table of Contents
 
@@ -2596,7 +2595,7 @@ kubectl get events -n hireflow --sort-by='.lastTimestamp'
         |
         v
 25. Verify HireFlow Pods / Services / Ingress
-```
+
 
 # End
 
