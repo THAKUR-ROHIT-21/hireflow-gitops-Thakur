@@ -1,4 +1,4 @@
-name: Build Push and Deploy
+name: Build and Push Docker Images
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: hireflow-main
-  cancel-in-progress: false
+  group: docker-publish-main
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -19,644 +19,71 @@ env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: thakur-rohit-21
 
-  # ==========================================================
-  # GITOPS REPOSITORY
-  # ==========================================================
-
-  GITOPS_REPO: thakur-rohit-21/hireflow-gitops-latest
-
-  # ==========================================================
-  # GHCR IMAGES
-  # ==========================================================
-
-  BACKEND_IMAGE: ghcr.io/thakur-rohit-21/hireflow-backend
-  FRONTEND_IMAGE: ghcr.io/thakur-rohit-21/hireflow-frontend
-
-
 jobs:
 
-  # ==========================================================
-  # BUILD AND PUSH DOCKER IMAGES
-  # ==========================================================
-
-  docker:
-
-    name: Build and Push Images
-
+  # =========================
+  # BACKEND
+  # =========================
+  backend:
+    name: Build & Push Backend
     runs-on: ubuntu-latest
 
-    outputs:
-      build_tag: ${{ steps.image-tag.outputs.build_tag }}
-      sha_tag: ${{ steps.image-tag.outputs.sha_tag }}
-
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # --------------------------------------------------------
-      # CHECKOUT SOURCE REPOSITORY
-      # --------------------------------------------------------
-
-      - name: Checkout source repository
-        uses: actions/checkout@v6
-
-
-      # --------------------------------------------------------
-      # GENERATE IMAGE TAGS
-      # --------------------------------------------------------
-
-      - name: Generate image tags
-        id: image-tag
-        shell: bash
-        run: |
-
-          BUILD_TAG="build-${GITHUB_RUN_NUMBER}"
-          SHA_TAG="${GITHUB_SHA}"
-
-          echo "build_tag=${BUILD_TAG}" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
-
-          echo "============================================"
-          echo "IMAGE TAGS"
-          echo "============================================"
-          echo "Build Tag : ${BUILD_TAG}"
-          echo "SHA Tag   : ${SHA_TAG}"
-          echo "============================================"
-
-
-      # --------------------------------------------------------
-      # DISPLAY IMAGE TAGS
-      # --------------------------------------------------------
-
-      - name: Display image tags
-        shell: bash
-        run: |
-
-          echo "Build Tag : ${{ steps.image-tag.outputs.build_tag }}"
-          echo "SHA Tag   : ${{ steps.image-tag.outputs.sha_tag }}"
-
-
-      # --------------------------------------------------------
-      # SETUP DOCKER BUILDX
-      # --------------------------------------------------------
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-
-      # --------------------------------------------------------
-      # LOGIN TO GHCR
-      # --------------------------------------------------------
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # ========================================================
-      # BUILD AND PUSH BACKEND
-      # ========================================================
-
-      - name: Build and push backend
+      - name: Build and Push Backend
         uses: docker/build-push-action@v7
         with:
           context: ./backend
           file: ./backend/Dockerfile
-
           push: true
-
           tags: |
-            ${{ env.BACKEND_IMAGE }}:build-${{ github.run_number }}
-            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/hireflow-backend:build-${{ github.run_number }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/hireflow-backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
 
-      # ========================================================
-      # BUILD AND PUSH FRONTEND
-      # ========================================================
+  # =========================
+  # FRONTEND
+  # =========================
+  frontend:
+    name: Build & Push Frontend
+    runs-on: ubuntu-latest
 
-      - name: Build and push frontend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Frontend
         uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-
           push: true
-
-          build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-
           tags: |
-            ${{ env.FRONTEND_IMAGE }}:build-${{ github.run_number }}
-            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/hireflow-frontend:build-${{ github.run_number }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/hireflow-frontend:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
-
-
-      # --------------------------------------------------------
-      # PRINT PUBLISHED IMAGES
-      # --------------------------------------------------------
-
-      - name: Print published images
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "GHCR IMAGES PUBLISHED"
-          echo "============================================"
-
-          echo ""
-          echo "Backend:"
-          echo "${{ env.BACKEND_IMAGE }}:build-${{ github.run_number }}"
-          echo "${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
-
-          echo ""
-          echo "Frontend:"
-          echo "${{ env.FRONTEND_IMAGE }}:build-${{ github.run_number }}"
-          echo "${{ env.FRONTEND_IMAGE }}:${{ github.sha }}"
-
-          echo ""
-          echo "Commit:"
-          echo "${GITHUB_SHA}"
-
-          echo "============================================"
-
-
-  # ==========================================================
-  # UPDATE GITOPS REPOSITORY
-  # ==========================================================
-
-  update-gitops:
-
-    name: Update GitOps Repository
-
-    needs: docker
-
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-
-      # --------------------------------------------------------
-      # CHECKOUT GITOPS REPOSITORY
-      # --------------------------------------------------------
-
-      - name: Checkout GitOps repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ env.GITOPS_REPO }}
-          token: ${{ secrets.GITOPS_TOKEN }}
-          path: gitops
-          ref: main
-          persist-credentials: true
-          fetch-depth: 0
-
-
-      # --------------------------------------------------------
-      # VERIFY GITOPS ACCESS
-      # --------------------------------------------------------
-
-      - name: Verify GitOps repository
-        working-directory: gitops
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "VERIFYING GITOPS REPOSITORY"
-          echo "============================================"
-
-          echo "Repository:"
-          echo "${{ env.GITOPS_REPO }}"
-
-          echo ""
-          echo "Remote:"
-          git remote -v
-
-          echo ""
-          echo "Branch:"
-          git branch --show-current
-
-          echo ""
-          echo "Latest commit:"
-          git log -1 --oneline
-
-          echo ""
-          echo "Remote main:"
-          git ls-remote origin main
-
-          echo "============================================"
-
-
-      # --------------------------------------------------------
-      # VERIFY KUBERNETES FILES
-      # --------------------------------------------------------
-
-      - name: Verify Kubernetes manifests
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "VERIFYING KUBERNETES MANIFESTS"
-          echo "============================================"
-
-          if [ ! -f "gitops/k8s/backend-deployment.yaml" ]; then
-            echo "ERROR: Backend deployment file not found."
-            echo "gitops/k8s/backend-deployment.yaml"
-            exit 1
-          fi
-
-          if [ ! -f "gitops/k8s/frontend-deployment.yaml" ]; then
-            echo "ERROR: Frontend deployment file not found."
-            echo "gitops/k8s/frontend-deployment.yaml"
-            exit 1
-          fi
-
-          echo "Backend manifest: FOUND"
-          echo "Frontend manifest: FOUND"
-
-          echo "============================================"
-
-
-      # --------------------------------------------------------
-      # CONFIGURE GIT
-      # --------------------------------------------------------
-
-      - name: Configure Git identity
-        working-directory: gitops
-        shell: bash
-        run: |
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-
-      # ========================================================
-      # SHOW CURRENT BACKEND IMAGE
-      # ========================================================
-
-      - name: Show current backend image
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "CURRENT BACKEND IMAGE"
-          echo "============================================"
-
-          grep -n "image:" \
-            gitops/k8s/backend-deployment.yaml || true
-
-
-      # ========================================================
-      # SHOW CURRENT FRONTEND IMAGE
-      # ========================================================
-
-      - name: Show current frontend image
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "CURRENT FRONTEND IMAGE"
-          echo "============================================"
-
-          grep -n "image:" \
-            gitops/k8s/frontend-deployment.yaml || true
-
-
-      # ========================================================
-      # UPDATE BACKEND IMAGE
-      # ========================================================
-
-      - name: Update backend image
-        shell: bash
-        run: |
-
-          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo "============================================"
-          echo "UPDATING BACKEND IMAGE"
-          echo "============================================"
-
-          echo "New image:"
-          echo "${NEW_IMAGE}"
-
-          sed -i -E \
-            "s|^([[:space:]]*image:[[:space:]]*)ghcr\.io/[^[:space:]]*/hireflow-backend:[^[:space:]]+|\1${NEW_IMAGE}|" \
-            gitops/k8s/backend-deployment.yaml
-
-          echo ""
-          echo "Backend image AFTER update:"
-
-          grep -n "image:" \
-            gitops/k8s/backend-deployment.yaml || true
-
-          echo "============================================"
-
-
-      # ========================================================
-      # UPDATE FRONTEND IMAGE
-      # ========================================================
-
-      - name: Update frontend image
-        shell: bash
-        run: |
-
-          NEW_IMAGE="${{ env.FRONTEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo "============================================"
-          echo "UPDATING FRONTEND IMAGE"
-          echo "============================================"
-
-          echo "New image:"
-          echo "${NEW_IMAGE}"
-
-          sed -i -E \
-            "s|^([[:space:]]*image:[[:space:]]*)ghcr\.io/[^[:space:]]*/hireflow-frontend:[^[:space:]]+|\1${NEW_IMAGE}|" \
-            gitops/k8s/frontend-deployment.yaml
-
-          echo ""
-          echo "Frontend image AFTER update:"
-
-          grep -n "image:" \
-            gitops/k8s/frontend-deployment.yaml || true
-
-          echo "============================================"
-
-
-      # ========================================================
-      # VERIFY BACKEND IMAGE
-      # ========================================================
-
-      - name: Verify backend image
-        shell: bash
-        run: |
-
-          EXPECTED_BACKEND="${{ env.BACKEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo "============================================"
-          echo "VERIFYING BACKEND IMAGE"
-          echo "============================================"
-
-          echo "Expected:"
-          echo "${EXPECTED_BACKEND}"
-
-          if grep -qF "${EXPECTED_BACKEND}" \
-            gitops/k8s/backend-deployment.yaml; then
-
-            echo ""
-            echo "SUCCESS: Backend image updated correctly."
-
-          else
-
-            echo ""
-            echo "ERROR: Backend image was NOT updated."
-
-            echo ""
-            echo "Actual image:"
-            grep -n "image:" \
-              gitops/k8s/backend-deployment.yaml || true
-
-            exit 1
-
-          fi
-
-          echo "============================================"
-
-
-      # ========================================================
-      # VERIFY FRONTEND IMAGE
-      # ========================================================
-
-      - name: Verify frontend image
-        shell: bash
-        run: |
-
-          EXPECTED_FRONTEND="${{ env.FRONTEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo "============================================"
-          echo "VERIFYING FRONTEND IMAGE"
-          echo "============================================"
-
-          echo "Expected:"
-          echo "${EXPECTED_FRONTEND}"
-
-          if grep -qF "${EXPECTED_FRONTEND}" \
-            gitops/k8s/frontend-deployment.yaml; then
-
-            echo ""
-            echo "SUCCESS: Frontend image updated correctly."
-
-          else
-
-            echo ""
-            echo "ERROR: Frontend image was NOT updated."
-
-            echo ""
-            echo "Actual image:"
-            grep -n "image:" \
-              gitops/k8s/frontend-deployment.yaml || true
-
-            exit 1
-
-          fi
-
-          echo "============================================"
-
-
-      # ========================================================
-      # SHOW GIT STATUS AND DIFF
-      # ========================================================
-
-      - name: Show GitOps changes
-        working-directory: gitops
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "GIT STATUS"
-          echo "============================================"
-
-          git status --short
-
-          echo ""
-          echo "============================================"
-          echo "GIT DIFF"
-          echo "============================================"
-
-          git diff
-
-          echo "============================================"
-
-
-      # ========================================================
-      # COMMIT GITOPS CHANGES
-      # ========================================================
-
-      - name: Commit GitOps changes
-        working-directory: gitops
-        shell: bash
-        run: |
-
-          echo "============================================"
-          echo "COMMITTING GITOPS CHANGES"
-          echo "============================================"
-
-          git add \
-            k8s/backend-deployment.yaml \
-            k8s/frontend-deployment.yaml
-
-          if git diff --cached --quiet; then
-
-            echo ""
-            echo "ERROR: No GitOps changes detected."
-
-            echo ""
-            echo "Backend image:"
-            grep -n "image:" \
-              k8s/backend-deployment.yaml || true
-
-            echo ""
-            echo "Frontend image:"
-            grep -n "image:" \
-              k8s/frontend-deployment.yaml || true
-
-            exit 1
-
-          fi
-
-          echo ""
-          echo "Staged changes:"
-          git diff --cached
-
-          git commit \
-            -m "deploy: build ${{ needs.docker.outputs.build_tag }}"
-
-          echo ""
-          echo "GitOps commit created successfully."
-
-          echo "CHANGED=true" >> "$GITHUB_ENV"
-
-
-      # ========================================================
-      # PUSH GITOPS CHANGES WITH RETRY
-      # ========================================================
-
-      - name: Push GitOps changes with retry
-        working-directory: gitops
-        shell: bash
-        run: |
-
-          if [ "${CHANGED}" != "true" ]; then
-            echo "Nothing to push."
-            exit 0
-          fi
-
-          echo "============================================"
-          echo "PUSHING GITOPS CHANGES"
-          echo "============================================"
-
-          for attempt in 1 2 3 4 5; do
-
-            echo ""
-            echo "Push attempt ${attempt}/5"
-
-            git fetch origin main
-
-            if ! git rebase origin/main; then
-
-              echo "Rebase failed."
-
-              git rebase --abort || true
-
-              echo "Retrying..."
-              sleep $((attempt * 3))
-
-              continue
-
-            fi
-
-            if git push origin HEAD:main; then
-
-              echo ""
-              echo "============================================"
-              echo "GITOPS PUSH SUCCESSFUL"
-              echo "============================================"
-
-              exit 0
-
-            fi
-
-            echo ""
-            echo "Push failed."
-            echo "Retrying..."
-
-            sleep $((attempt * 3))
-
-          done
-
-          echo ""
-          echo "============================================"
-          echo "ERROR: GITOPS PUSH FAILED"
-          echo "============================================"
-
-          exit 1
-
-
-      # ========================================================
-      # DEPLOYMENT SUMMARY
-      # ========================================================
-
-      - name: Deployment summary
-        shell: bash
-        run: |
-
-          echo ""
-          echo "================================================"
-          echo "          HIRE FLOW DEPLOYMENT SUMMARY"
-          echo "================================================"
-
-          echo ""
-          echo "Source Commit:"
-          echo "${GITHUB_SHA}"
-
-          echo ""
-          echo "Build Tag:"
-          echo "${{ needs.docker.outputs.build_tag }}"
-
-          echo ""
-          echo "Backend Image:"
-          echo "${{ env.BACKEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo ""
-          echo "Frontend Image:"
-          echo "${{ env.FRONTEND_IMAGE }}:${{ needs.docker.outputs.build_tag }}"
-
-          echo ""
-          echo "GitOps Repository:"
-          echo "${{ env.GITOPS_REPO }}"
-
-          echo ""
-          echo "GitOps Commit:"
-          echo "deploy: build ${{ needs.docker.outputs.build_tag }}"
-
-          echo ""
-          echo "Argo CD:"
-          echo "Argo CD will detect the GitOps repository change."
-
-          echo ""
-          echo "Kubernetes:"
-          echo "Backend and Frontend deployments will be updated."
-
-          echo ""
-          echo "Rollback:"
-          echo "Rollback is possible by reverting the GitOps commit."
-
-          echo ""
-          echo "================================================"
-          echo "              DEPLOYMENT COMPLETE"
-          echo "================================================"
